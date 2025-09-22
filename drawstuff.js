@@ -38,8 +38,148 @@ class Color {
             console.log(e);
         }
     } // end Color change method
+
+    
 } // end color class
 
+// Used Vector class below from CSC 461 exercise 4
+// Vector class
+class Vector { 
+    constructor(x,y,z) {
+        this.set(x,y,z);
+    } // end constructor
+    
+    // sets the components of a vector
+    set(x,y,z) {
+        try {
+            if ((typeof(x) !== "number") || (typeof(y) !== "number") || (typeof(z) !== "number"))
+                throw "vector component not a number";
+            else
+                this.x = x; this.y = y; this.z = z; 
+        } // end try
+        
+        catch(e) {
+            console.log(e);
+        }
+    } // end vector set
+    
+    // copy the passed vector into this one
+    copy(v) {
+        try {
+            if (!(v instanceof Vector))
+                throw "Vector.copy: non-vector parameter";
+            else
+                this.x = v.x; this.y = v.y; this.z = v.z;
+        } // end try
+        
+        catch(e) {
+            console.log(e);
+        }
+    }
+    
+    toConsole(prefix="") {
+        console.log(prefix+"["+this.x+","+this.y+","+this.z+"]");
+    } // end to console
+    
+    // static dot method
+    static dot(v1,v2) {
+        try {
+            if (!(v1 instanceof Vector) || !(v2 instanceof Vector))
+                throw "Vector.dot: non-vector parameter";
+            else
+                return(v1.x*v2.x + v1.y*v2.y + v1.z*v2.z);
+        } // end try
+        
+        catch(e) {
+            console.log(e);
+            return(NaN);
+        }
+    } // end dot static method
+    
+    // static cross method
+    static cross(v1,v2) {
+        try {
+            if (!(v1 instanceof Vector) || !(v2 instanceof Vector))
+                throw "Vector.cross: non-vector parameter";
+            else {
+                var crossX = v1.y*v2.z - v1.z*v2.y;
+                var crossY = v1.z*v2.x - v1.x*v2.z;
+                var crossZ = v1.x*v2.y - v1.y*v2.x;
+                return(new Vector(crossX,crossY,crossZ));
+            } // endif vector params
+        } // end try
+        
+        catch(e) {
+            console.log(e);
+            return(NaN);
+        }
+    } // end dot static method
+    
+    // static add method
+    static add(v1,v2) {
+        try {
+            if (!(v1 instanceof Vector) || !(v2 instanceof Vector))
+                throw "Vector.add: non-vector parameter";
+            else
+                return(new Vector(v1.x+v2.x,v1.y+v2.y,v1.z+v2.z));
+        } // end try
+        
+        catch(e) {
+            console.log(e);
+            return(new Vector(NaN,NaN,NaN));
+        }
+    } // end add static method
+
+    // static subtract method, v1-v2
+    static subtract(v1,v2) {
+        try {
+            if (!(v1 instanceof Vector) || !(v2 instanceof Vector))
+                throw "Vector.subtract: non-vector parameter";
+            else {
+                var v = new Vector(v1.x-v2.x,v1.y-v2.y,v1.z-v2.z);
+                return(v);
+            }
+        } // end try
+        
+        catch(e) {
+            console.log(e);
+            return(new Vector(NaN,NaN,NaN));
+        }
+    } // end subtract static method
+
+    // static scale method
+    static scale(c,v) {
+        try {
+            if (!(typeof(c) === "number") || !(v instanceof Vector))
+                throw "Vector.scale: malformed parameter";
+            else
+                return(new Vector(c*v.x,c*v.y,c*v.z));
+        } // end try
+        
+        catch(e) {
+            console.log(e);
+            return(new Vector(NaN,NaN,NaN));
+        }
+    } // end scale static method
+    
+    // static normalize method
+    static normalize(v) {
+        try {
+            if (!(v instanceof Vector))
+                throw "Vector.normalize: parameter not a vector";
+            else {
+                var lenDenom = 1/Math.sqrt(Vector.dot(v,v));
+                return(Vector.scale(lenDenom,v));
+            }
+        } // end try
+        
+        catch(e) {
+            console.log(e);
+            return(new Vector(NaN,NaN,NaN));
+        }
+    } // end scale static method
+    
+} // end Vector class
 
 /* utility functions */
 
@@ -439,7 +579,7 @@ function drawInputBoxesUsingPaths(context) {
 			lx = w*inputBoxes[b].lx;
 			rx = w*inputBoxes[b].rx;
 			by = h*inputBoxes[b].by;
-			ty = h*inputBoxes[b].ty; 
+			ty = h*inputBoxes[b].ty;
         		
             context.fillStyle = 
             	"rgb(" + Math.floor(inputBoxes[b].diffuse[0]*255)
@@ -458,6 +598,28 @@ function drawInputBoxesUsingPaths(context) {
     } // end if box files found
 } // end draw input boxes
 
+function drawScene(context) {
+    var inputBoxes = getInputBoxes();
+    var n = inputBoxes.length; // the number of input boxes
+    var imagedata = context.createImageData(w,h);
+    var w = context.canvas.width; // as set in html
+    var h = context.canvas.height;  // as set in html
+    var c = new Color( 0, 0, 0, 0 );
+    var windowDist = 0.5;
+    var ulw = new Vector( 0, 1, 0 );
+    var urw = new Vector( 1, 1, 0 );
+    var llw = new Vector( 0, 0, 0 );
+    var lrw = new Vector( 1, 0, 0 );
+    var area = w * h;
+    for( var i = 0; i < area; i++ ) {
+        var x = i % w;
+        var y = i / h;
+        drawPixel( imagedata, x, y, c );
+    }
+    
+    context.putImageData( imagedata, 10, 10 );
+}
+
 /* main -- here is where execution begins after window load */
 
 function main() {
@@ -465,7 +627,16 @@ function main() {
     // Get the canvas and context
     var canvas = document.getElementById("viewport"); 
     var context = canvas.getContext("2d");
- 
+    // -- Start of code that I used from CSC 461 exercise 4 --
+    //var imagedata = context.createImageData(w,h);
+
+    // define polygon and view
+    var testEye = new Vector(0.5,0.5,-0.5);
+    var view = {eye:testEye, at:new Vector(0,0,1), up:new Vector(0,1,0)};
+
+    // -- End of code that I used form CSC 461 exercise 4 --
+
+    drawScene( context );
     // Create the image
     //drawRandPixels(context);
       // shows how to draw pixels
@@ -482,7 +653,7 @@ function main() {
     //drawInputTrainglesUsingPaths(context);
       // shows how to read input file, but not how to draw pixels
     
-    drawRandPixelsInInputBoxes(context);
+    //drawRandPixelsInInputBoxes(context);
       // shows how to draw pixels and read input file
     
     //drawInputBoxesUsingPaths(context);
