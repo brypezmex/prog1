@@ -601,9 +601,9 @@ function drawInputBoxesUsingPaths(context) {
 function drawScene(context) {
     var inputBoxes = getInputBoxes();
     var n = inputBoxes.length; // the number of input boxes
+    var w = context.canvas.width;
+    var h = context.canvas.height;
     var imagedata = context.createImageData(w,h);
-    var w = context.canvas.width; // as set in html
-    var h = context.canvas.height;  // as set in html
     var c = new Color( 0, 0, 0, 0 );
     var windowDist = 0.5;
     var ulw = new Vector( 0, 1, 0 );
@@ -617,7 +617,7 @@ function drawScene(context) {
         drawPixel( imagedata, x, y, c );
     }
     
-    context.putImageData( imagedata, 10, 10 );
+    context.putImageData( imagedata, 0, 0 );
 }
 
 /* main -- here is where execution begins after window load */
