@@ -619,7 +619,7 @@ function getInputDesign() {
 }
 
 /**
- * Draws the 2D scene with an initial background and acceots any json file that contains valid
+ * Draws the 2D scene with an initial background and accepts a json file that contains valid
  * information for an object(s) to be displayed in the window view.
  * 
  * @param context 2D Canvas that was used to create the image
