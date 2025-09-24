@@ -542,7 +542,7 @@ function drawRandPixelsInInputBoxes(context) {
                 inputBoxes[b].diffuse[1]*255,
                 inputBoxes[b].diffuse[2]*255,
                 255); // box diffuse color
-            for (var p=0; p<numBoxesPixels; p++) {
+            for (var p=0; p< numBoxesPixels; p++) {
                 do {
                     x = Math.floor(Math.random()*w); 
                     y = Math.floor(Math.random()*h); 
@@ -598,27 +598,201 @@ function drawInputBoxesUsingPaths(context) {
     } // end if box files found
 } // end draw input boxes
 
-function drawScene(context) {
-    var inputBoxes = getInputBoxes();
-    var n = inputBoxes.length; // the number of input boxes
+function getInputDesign() {
+    const INPUT_BOXES_URL = 
+        "design.json";
+        
+    // load the boxes file
+    var httpReq = new XMLHttpRequest(); // a new http request
+    httpReq.open("GET",INPUT_BOXES_URL,false); // init the request
+    httpReq.send(null); // send the request
+    var startTime = Date.now();
+    while ((httpReq.status !== 200) && (httpReq.readyState !== XMLHttpRequest.DONE)) {
+        if ((Date.now()-startTime) > 3000)
+            break;
+    } // until its loaded or we time out after three seconds
+    if ((httpReq.status !== 200) || (httpReq.readyState !== XMLHttpRequest.DONE)) {
+        console.log*("Unable to open input boxes file!");
+        return String.null;
+    } else
+        return JSON.parse(httpReq.response); 
+}
+
+/**
+ * Draws the 2D scene with an initial background and acceots any json file that contains valid
+ * information for an object(s) to be displayed in the window view.
+ * 
+ * @param context 2D Canvas that was used to create the image
+ * @param input types of objects that will be seen in the image
+ */
+function drawSceneWithBoxes(context, input) {
+    // Checks to see if input is valid
+    if (!input || input.length == 0) {
+        console.log("No boxes to render.");
+        return;
+    }
+
+    var n = input.length;
     var w = context.canvas.width;
     var h = context.canvas.height;
-    var imagedata = context.createImageData(w,h);
-    var c = new Color( 0, 0, 0, 0 );
-    var windowDist = 0.5;
-    var ulw = new Vector( 0, 1, 0 );
-    var urw = new Vector( 1, 1, 0 );
-    var llw = new Vector( 0, 0, 0 );
-    var lrw = new Vector( 1, 0, 0 );
     var area = w * h;
+    var imagedata = context.createImageData( w, h );
+    var eye = new Vector( 0.5, 0.5, -0.5 );
+    var light = new Vector( -0.5, 1.5, -0.5 );
+    var lightColor = new Vector( 1.0, 1.0, 1.0 );
+
+    // Loop through the 2D plane for each pixel in the area
     for( var i = 0; i < area; i++ ) {
         var x = i % w;
-        var y = i / h;
+        var y = Math.floor( i / w );
+
+        // Map pixel to window centered at (0.5,0.5,0)
+        var wx = ( x + 0.5 ) / w;
+        var wy = 1.0 - ( ( y + 0.5 ) / h ); 
+        var window = new Vector( wx, wy, 0 );
+
+        // Ray direction
+        var dir = Vector.subtract( window, eye );
+        dir = Vector.normalize( dir );
+
+        // Per-pixel nearest hit
+        var closestT = Infinity;
+        var hitBox = null;
+        var hitPoint = null;
+        var hitNormal = null;
+
+        // Check each box
+        for( var b = 0; b < n; b++ ) {
+            var box = input[ b ];
+
+            var tmin = -Infinity;
+            var tmax = Infinity;
+            var entryFace = null;
+
+            // X planes
+            if( Math.abs( dir.x ) >= 1e-8 ) {
+                var tx0 = ( box.lx - eye.x ) / dir.x;
+                var tx1 = ( box.rx - eye.x ) / dir.x;
+                
+                var tNear;
+                var tFar;
+                var nearNormal;
+                if( tx0 < tx1 ) {
+                    tNear = tx0;
+                    tFar = tx1;
+                    nearNormal = new Vector( -1, 0, 0 );
+                } else {
+                    tNear = tx1;
+                    tFar = tx0;
+                    nearNormal = new Vector( 1, 0, 0 );
+                }
+                
+                if ( tNear > tmin ) {
+                    tmin = tNear;
+                    entryFace = nearNormal;
+                }
+                tmax = Math.min( tmax, tFar );
+            }
+
+            // Y planes
+            if( Math.abs( dir.y ) >= 1e-8 ) {
+                var ty0 = ( box.by - eye.y ) / dir.y;
+                var ty1 = ( box.ty - eye.y ) / dir.y;
+                
+                var tNear;
+                var tFar;
+                var nearNormal;
+                if( ty0 < ty1 ) {
+                    tNear = ty0;
+                    tFar = ty1;
+                    nearNormal = new Vector( 0, -1, 0 );
+                } else {
+                    tNear = ty1;
+                    tFar = ty0;
+                    nearNormal = new Vector( 0, 1, 0 );
+                }
+                
+                if( tNear > tmin ) {
+                    tmin = tNear;
+                    entryFace = nearNormal;
+                }
+                tmax = Math.min( tmax, tFar );
+            }
+
+            // Z planes
+            if( Math.abs( dir.z ) >= 1e-8 ) {
+                var tz0 = ( box.fz - eye.z ) / dir.z;
+                var tz1 = ( box.rz - eye.z ) / dir.z;
+                
+                var tNear;
+                var tFar;
+                var nearNormal;
+                if( tz0 < tz1 ) {
+                    tNear = tz0;
+                    tFar = tz1;
+                    nearNormal = new Vector( 0, 0, -1 );
+                } else {
+                    tNear = tz1;
+                    tFar = tz0;
+                    nearNormal = new Vector( 0, 0, 1 );
+                }
+                
+                if( tNear > tmin ) {
+                    tmin = tNear;
+                    entryFace = nearNormal;
+                }
+                tmax = Math.min( tmax, tFar );
+            }
+
+            // Check for valid intersection
+            if( tmax >= tmin && tmin >= 0 && tmin < closestT ) {
+                closestT = tmin;
+                hitBox = box;
+                hitPoint = Vector.add( eye, Vector.scale( tmin, dir ) );
+                hitNormal = entryFace;
+            }
+        } // end boxes loop
+
+        // Shade pixel if hit
+        var c = new Color( 0, 0, 0, 255 ); // default color: black
+        if( hitBox && hitNormal ) {
+            // Normalize vectors
+            var N = Vector.normalize( hitNormal );
+            var L = Vector.normalize( Vector.subtract( light, hitPoint ) );
+            var V = Vector.normalize( Vector.subtract( eye, hitPoint ) );
+            var H = Vector.normalize( Vector.add( L, V ) );
+
+            // Ambient component
+            var r = hitBox.ambient[ 0 ];
+            var g = hitBox.ambient[ 1 ];
+            var b = hitBox.ambient[ 2 ];
+
+            // Diffuse component
+            var NdotL = Math.max( 0, Vector.dot( N, L ) );
+            r += hitBox.diffuse[ 0 ] * lightColor.x * NdotL;
+            g += hitBox.diffuse[ 1 ] * lightColor.y * NdotL;
+            b += hitBox.diffuse[ 2 ] * lightColor.z * NdotL;
+
+            // Specular component
+            var NdotH = Math.max( 0, Vector.dot( N, H ) );
+            var spec = Math.pow( NdotH, hitBox.n );
+            r += hitBox.specular[ 0 ] * lightColor.x * spec;
+            g += hitBox.specular[ 1 ] * lightColor.y * spec;
+            b += hitBox.specular[ 2 ] * lightColor.z * spec;
+
+            // Clamp [0,1] to [0,255]
+            r = Math.max(0, Math.min( 1, r ) );
+            g = Math.max(0, Math.min( 1, g ) );
+            b = Math.max(0, Math.min( 1, b ) );
+
+            c.change( Math.floor( r * 255 ), Math.floor( g * 255 ), Math.floor( b * 255 ), 255 );
+        }
+        
         drawPixel( imagedata, x, y, c );
-    }
-    
+    } // end pixel loop
+
     context.putImageData( imagedata, 0, 0 );
-}
+} // end draw scene function
 
 /* main -- here is where execution begins after window load */
 
@@ -627,16 +801,8 @@ function main() {
     // Get the canvas and context
     var canvas = document.getElementById("viewport"); 
     var context = canvas.getContext("2d");
-    // -- Start of code that I used from CSC 461 exercise 4 --
-    //var imagedata = context.createImageData(w,h);
 
-    // define polygon and view
-    var testEye = new Vector(0.5,0.5,-0.5);
-    var view = {eye:testEye, at:new Vector(0,0,1), up:new Vector(0,1,0)};
-
-    // -- End of code that I used form CSC 461 exercise 4 --
-
-    drawScene( context );
+    drawSceneWithBoxes( context, getInputDesign() );
     // Create the image
     //drawRandPixels(context);
       // shows how to draw pixels
